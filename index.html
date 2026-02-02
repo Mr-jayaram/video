@@ -123,21 +123,21 @@
 
         .resizer-r {
             grid-column: 4;
-            grid-row: 2;
+            grid-row: 2 / 5;
         }
 
         .right-panel {
             grid-column: 5;
-            grid-row: 2;
+            grid-row: 2 / 5;
         }
 
         .resizer-b {
-            grid-column: 1 / -1;
+            grid-column: 1 / 4;
             grid-row: 3;
         }
 
         .timeline {
-            grid-column: 1 / -1;
+            grid-column: 1 / 4;
             grid-row: 4;
         }
 
@@ -776,7 +776,6 @@
 
         /* ===== TIMELINE ===== */
         .timeline {
-            grid-column: 1 / -1;
             background: #0f0f0f;
             border-top: 1px solid #2a2a2a;
             display: flex;
@@ -1183,44 +1182,107 @@
         }
 
         /* ===== MOBILE VIEW: SMART ROTATION & FIT-TO-SCREEN ===== */
+        /* ===== MOBILE RESPONSIVE UI ===== */
         @media (max-width: 950px) {
-
-            html,
-            body {
-                width: 100%;
-                height: 100%;
-                margin: 0;
-                padding: 0;
-                overflow: hidden;
-                background: #000;
-                position: fixed;
-            }
-
             .editor-container {
-                position: fixed;
-                top: 50%;
-                left: 50%;
-                /* Virtual desktop dimensions for layout preservation */
-                width: 1280px !important;
-                height: 720px !important;
-                display: grid !important;
+                display: flex !important;
+                flex-direction: column !important;
+                grid-template-columns: 1fr !important;
+                grid-template-rows: auto 1fr auto auto !important;
+                height: 100vh !important;
+                overflow: hidden !important;
             }
 
-            /* Portait: Rotate and scale to fit */
-            @media (orientation: portrait) {
-                .editor-container {
-                    --scale: min(calc(100vh / 1280), calc(100vw / 720));
-                    transform: translate(-50%, -50%) rotate(90deg) scale(var(--scale));
-                }
+            .header {
+                height: 50px !important;
+                padding: 0 10px !important;
+                gap: 10px !important;
             }
 
-            /* Landscape: No rotation, just scale to fit if needed */
-            @media (orientation: landscape) {
-                .editor-container {
-                    --scale: min(calc(100vw / 1280), calc(100vh / 720));
-                    transform: translate(-50%, -50%) rotate(0deg) scale(var(--scale));
-                }
+            .header .logo span,
+            .header .auto-save,
+            .header .time-display {
+                display: none;
             }
+
+            .resizer-v,
+            .resizer-h {
+                display: none !important;
+            }
+
+            .left-panel,
+            .right-panel {
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 100% !important;
+                height: 100% !important;
+                z-index: 2000 !important;
+                display: none;
+                /* Shown via .mobile-active class */
+                background: #0f0f0f !important;
+            }
+
+            .left-panel.mobile-active,
+            .right-panel.mobile-active {
+                display: flex !important;
+            }
+
+            .canvas-area {
+                flex: 1 !important;
+                min-height: 0 !important;
+                display: flex !important;
+                flex-direction: column !important;
+            }
+
+            .top-toolbar {
+                order: 2;
+                background: #0a0a0a !important;
+                padding: 5px !important;
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch;
+                border-top: 1px solid #222 !important;
+                border-bottom: none !important;
+                flex-shrink: 0 !important;
+            }
+
+            .player-wrapper {
+                order: 1;
+                flex: 1 !important;
+                padding: 10px !important;
+            }
+
+            #videoPlayer {
+                max-height: 100% !important;
+            }
+
+            .timeline {
+                height: 200px !important;
+                border-top: 1px solid #333 !important;
+            }
+
+            .timeline-toolbar {
+                overflow-x: auto !important;
+                padding: 5px !important;
+            }
+
+            /* Mobile Back Button */
+            .mobile-back-btn {
+                display: flex !important;
+                align-items: center;
+                gap: 8px;
+                padding: 12px;
+                background: #1a1a1a;
+                border-bottom: 1px solid #2a2a2a;
+                color: #00d4ff;
+                font-weight: 600;
+                cursor: pointer;
+            }
+        }
+
+        /* Default hidden for mobile elements on desktop */
+        .mobile-back-btn {
+            display: none;
         }
     </style>
 </head>
@@ -1244,16 +1306,14 @@
                 <button class="menu-btn">🔔 Shortcut</button>
                 <button class="export-btn" id="exportBtn">Export</button>
 
-                <div class="window-controls">
-                    <button class="window-btn">−</button>
-                    <button class="window-btn">□</button>
-                    <button class="window-btn">×</button>
-                </div>
             </div>
         </div>
 
         <!-- LEFT PANEL -->
-        <div class="left-panel">
+        <div class="left-panel" id="leftPanel">
+            <div class="mobile-back-btn" onclick="closePanel('left')">
+                <span>←</span> Back to Editor
+            </div>
             <div class="panel-tabs">
                 <button class="panel-tab active">Local</button>
                 <button class="panel-tab">Import</button>
@@ -1387,7 +1447,10 @@
         <div class="resizer-v resizer-r" id="resizerR"></div>
 
         <!-- RIGHT PANEL -->
-        <div class="right-panel">
+        <div class="right-panel" id="rightPanel">
+            <div class="mobile-back-btn" onclick="closePanel('right')">
+                <span>←</span> Back to Editor
+            </div>
             <div class="properties-tabs">
                 <button class="prop-tab active" data-prop="video">Video</button>
                 <button class="prop-tab" data-prop="audio">Audio</button>
@@ -1465,11 +1528,6 @@
                         </div>
                     </div>
 
-                    <!-- Toggle UI for Mobile -->
-                    <div id="mobileUIToggle" style="display: none; padding: 10px; border-top: 1px solid #2a2a2a;">
-                        <button class="upload-btn-small" style="width: 100%;" onclick="toggleMobilePanels()">Switch to
-                            Full Editor View</button>
-                    </div>
 
                     <!-- Blend Section -->
                     <div class="property-section">
@@ -3136,6 +3194,17 @@
             btn.addEventListener('click', () => {
                 document.querySelectorAll('.tool-category').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
+
+                // Mobile Panel Logic
+                const tool = btn.getAttribute('data-tool');
+                if (['media', 'audio', 'text', 'stickers'].includes(tool)) {
+                    showPanel('left');
+                } else if (['effects', 'transitions', 'filters', 'adjustment'].includes(tool)) {
+                    showPanel('right');
+                    // Map tool to properties tab if needed
+                    if (tool === 'filters') document.querySelector('[data-prop="adjust"]').click();
+                    if (tool === 'effects') document.querySelector('[data-prop="video"]').click();
+                }
             });
         });
 
@@ -3156,6 +3225,26 @@
         }
 
         let isMobilePanelsVisible = false;
+
+        function closePanel(side) {
+            const panel = side === 'left' ? document.getElementById('leftPanel') : document.getElementById('rightPanel');
+            panel.classList.remove('mobile-active');
+        }
+
+        function showPanel(side) {
+            if (window.innerWidth > 950) return;
+            const leftPanel = document.getElementById('leftPanel');
+            const rightPanel = document.getElementById('rightPanel');
+
+            if (side === 'left') {
+                leftPanel.classList.add('mobile-active');
+                rightPanel.classList.remove('mobile-active');
+            } else {
+                rightPanel.classList.add('mobile-active');
+                leftPanel.classList.remove('mobile-active');
+            }
+        }
+
         function toggleMobilePanels() {
             isMobilePanelsVisible = !isMobilePanelsVisible;
             const leftPanel = document.querySelector('.left-panel');
