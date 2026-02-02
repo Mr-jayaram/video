@@ -586,7 +586,8 @@
             border-left: 1px solid #2a2a2a;
             display: flex;
             flex-direction: column;
-            overflow-y: auto;
+            overflow: hidden;
+            /* Prevent panel itself from scrolling */
         }
 
         .properties-tabs {
@@ -596,6 +597,8 @@
             gap: 5px;
             padding: 8px;
             overflow-x: auto;
+            flex-shrink: 0;
+            /* Ensure tabs don't shrink */
             scrollbar-width: none;
             /* Hide for Firefox */
         }
@@ -629,6 +632,8 @@
         .properties-content {
             flex: 1;
             padding: 20px;
+            overflow-y: auto;
+            /* Only content area scrolls */
         }
 
         .property-section {
@@ -3162,8 +3167,9 @@
                 leftPanel.style.display = 'flex';
                 rightPanel.style.display = 'flex';
                 header.style.display = 'flex';
-                container.style.gridTemplateColumns = '200px 1fr 200px';
-                container.style.gridTemplateRows = '40px 1fr 150px';
+                // Use a grid that works with existing grid-column placements
+                container.style.gridTemplateColumns = '200px 4px 1fr 4px 200px';
+                container.style.gridTemplateRows = '40px 1fr 4px 150px';
             } else {
                 location.reload(); // Quick reset to CSS defaults
             }
