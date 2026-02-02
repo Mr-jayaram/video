@@ -458,6 +458,54 @@
             height: auto;
         }
 
+        /* Fullscreen styles for centering */
+        .player-container:fullscreen {
+            display: grid;
+            place-items: center;
+            background: #000;
+            width: 100vw !important;
+            height: 100vh !important;
+        }
+
+        .player-container:fullscreen>*:not(.player-controls) {
+            grid-area: 1 / 1;
+        }
+
+        .player-container:fullscreen .player-controls {
+            z-index: 1000;
+        }
+
+        .player-container:fullscreen #videoPlayer {
+            max-height: 100vh !important;
+            max-width: 100vw !important;
+            width: auto;
+            height: auto;
+        }
+
+        /* Webkit specific fullscreen */
+        .player-container:-webkit-full-screen {
+            display: grid;
+            place-items: center;
+            background: #000;
+            width: 100vw !important;
+            height: 100vh !important;
+        }
+
+        .player-container:-webkit-full-screen>*:not(.player-controls) {
+            grid-area: 1 / 1;
+        }
+
+        .player-container:-webkit-full-screen .player-controls {
+            z-index: 1000;
+        }
+
+        .player-container:-webkit-full-screen #videoPlayer {
+            max-height: 100vh !important;
+            max-width: 100vw !important;
+            width: auto;
+            height: auto;
+        }
+
         .player-overlay {
             position: absolute;
             top: 0;
@@ -476,13 +524,16 @@
             padding: 15px;
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 12px;
+            z-index: 10;
         }
 
         .player-time {
-            color: #00d4ff;
-            font-size: 12px;
+            color: #fff;
+            font-size: 14px;
             font-family: monospace;
+            text-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
         }
 
         .player-quality {
@@ -1187,6 +1238,12 @@
                         <!-- Text layers will be added here -->
                     </div>
 
+                    <div class="player-controls">
+                        <span class="player-time" id="playerTime">00:00:00.00</span>
+                        <span style="color: #666; font-family: monospace;">/</span>
+                        <span class="player-time" id="playerDuration">00:00:00.00</span>
+                    </div>
+
 
                     <div class="placeholder-screen" id="placeholder">
                         <svg class="placeholder-icon" fill="currentColor" viewBox="0 0 24 24">
@@ -1712,6 +1769,7 @@
                 if (playerDuration) playerDuration.textContent = formatTime(videoPlayer.duration);
 
                 // Create video clip in timeline
+                saveState();
                 createVideoClip(file);
 
                 // Generate ruler
@@ -1815,10 +1873,10 @@
         }
 
         function getTotalDuration() {
-            let max = state.videoDuration || 0;
+            let max = 0;
             const clips = document.querySelectorAll('.track-clip');
             clips.forEach(clip => {
-                const end = (parseInt(clip.style.left) + parseInt(clip.style.width)) / state.pixelsPerSecond;
+                const end = (parseFloat(clip.style.left || 0) + parseFloat(clip.style.width || 0)) / state.pixelsPerSecond;
                 if (end > max) max = end;
             });
             return max;
@@ -1826,6 +1884,7 @@
 
         function updateUI() {
             if (playerTime) playerTime.textContent = formatTime(state.timelineTime);
+            if (playerDuration) playerDuration.textContent = formatTime(getTotalDuration());
             updatePlayhead();
         }
 
@@ -1873,20 +1932,18 @@
 
         // ===== ZOOM CONTROL =====
         zoomSlider.addEventListener('input', () => {
+            const oldPixelsPerSecond = state.pixelsPerSecond;
             state.zoom = parseInt(zoomSlider.value);
             state.pixelsPerSecond = state.zoom * 10;
 
-            // Update video clip width
+            // Update all clips widths and positions based on new zoom
             const clips = document.querySelectorAll('.track-clip');
             clips.forEach(clip => {
-                clip.style.width = (state.videoDuration * state.pixelsPerSecond) + 'px';
+                const startTime = parseFloat(clip.style.left || 0) / oldPixelsPerSecond;
+                const duration = parseFloat(clip.style.width || 0) / oldPixelsPerSecond;
+                clip.style.left = (startTime * state.pixelsPerSecond) + 'px';
+                clip.style.width = (duration * state.pixelsPerSecond) + 'px';
             });
-
-            // Update tracks container width
-            if (state.videoDuration) {
-                const totalWidth = state.videoDuration * state.pixelsPerSecond;
-                tracksContainer.style.width = totalWidth + 'px';
-            }
 
             generateRuler();
             updatePlayhead();
@@ -1894,15 +1951,19 @@
 
         function generateRuler() {
             timelineRuler.innerHTML = '';
-            if (!state.videoDuration) return;
+            const totalDuration = getTotalDuration();
 
-            const width = state.videoDuration * state.pixelsPerSecond;
+            // The timeline width is based on the end of the last video
+            // We add 5 seconds of empty space at the end for better UX, but min 10s total
+            const paddedDuration = Math.max(totalDuration + 5, 10);
+
+            const width = paddedDuration * state.pixelsPerSecond;
             timelineRuler.style.width = width + 'px';
             tracksContainer.style.width = width + 'px';
 
-            const interval = state.zoom < 3 ? 5 : state.zoom < 6 ? 2 : 1;
+            const interval = state.zoom < 3 ? 10 : state.zoom < 6 ? 5 : 2;
 
-            for (let i = 0; i <= state.videoDuration; i += interval) {
+            for (let i = 0; i <= paddedDuration; i += interval) {
                 const marker = document.createElement('div');
                 marker.className = 'ruler-marker';
                 marker.style.left = (i * state.pixelsPerSecond) + 'px';
@@ -2149,6 +2210,9 @@
                         audioTrack.appendChild(clip);
                         audioFiles.push({ element: audio, clip: clip, file: file });
 
+                        saveState();
+                        generateRuler();
+
                         alert('Audio track added: ' + file.name);
                     });
                 }
@@ -2283,9 +2347,11 @@
             }
 
             const newClip = copiedClip.cloneNode(true);
-            const currentLeft = parseInt(copiedClip.style.left || 0);
+            const currentLeft = parseFloat(copiedClip.style.left || 0);
             newClip.style.left = (currentLeft + 100) + 'px';
             videoTrack.appendChild(newClip);
+            initClipEvents(newClip);
+            generateRuler();
             alert('Clip pasted!');
         }
 
@@ -2297,6 +2363,7 @@
                 syncVideoToTimeline();
                 syncAudioToTimeline();
                 updateUI();
+                generateRuler();
             }
         }
 
@@ -2322,6 +2389,7 @@
         }
 
         function startTrimming(e, clip, side) {
+            saveState();
             e.stopPropagation();
             const startX = e.clientX;
             const startWidth = clip.offsetWidth;
@@ -2349,9 +2417,16 @@
                 syncVideoToTimeline();
                 syncAudioToTimeline();
                 updateUI();
+
+                // Expand timeline width dynamically
+                const totalDuration = getTotalDuration();
+                const width = (totalDuration + 10) * state.pixelsPerSecond;
+                timelineRuler.style.width = width + 'px';
+                tracksContainer.style.width = width + 'px';
             };
 
             const onMouseUp = () => {
+                generateRuler();
                 document.removeEventListener('mousemove', onMouseMove);
                 document.removeEventListener('mouseup', onMouseUp);
             };
@@ -2361,6 +2436,7 @@
         }
 
         function startDraggingClip(e, clip) {
+            saveState();
             const startX = e.clientX;
             const startLeft = clip.offsetLeft;
 
@@ -2370,9 +2446,16 @@
                 syncVideoToTimeline();
                 syncAudioToTimeline();
                 updateUI();
+
+                // Expand timeline width dynamically
+                const totalDuration = getTotalDuration();
+                const width = (totalDuration + 10) * state.pixelsPerSecond;
+                timelineRuler.style.width = width + 'px';
+                tracksContainer.style.width = width + 'px';
             };
 
             const onMouseUp = () => {
+                generateRuler();
                 document.removeEventListener('mousemove', onMouseMove);
                 document.removeEventListener('mouseup', onMouseUp);
             };
@@ -2389,6 +2472,7 @@
             const selectedClip = document.querySelector('.track-clip.selected');
             if (!selectedClip) return;
 
+            saveState();
             const playheadX = playheadContainer.offsetLeft;
             const clipLeft = selectedClip.offsetLeft;
             const clipWidth = selectedClip.offsetWidth;
@@ -2414,6 +2498,7 @@
 
             selectedClip.parentNode.appendChild(secondHalf);
             initClipEvents(secondHalf);
+            generateRuler();
         }
 
         // Update createVideoClip to set initial data
@@ -2506,7 +2591,9 @@
 
         function saveState() {
             const currentState = {
-                textLayers: state.textLayers.map(l => l.cloneNode(true)),
+                textLayersHTML: layerOverlay.innerHTML,
+                videoTrackHTML: videoTrack.innerHTML,
+                audioTrackHTML: audioTrack.innerHTML,
                 filters: { ...state.filters },
                 timestamp: Date.now()
             };
@@ -2525,9 +2612,8 @@
             if (history.currentIndex > 0) {
                 history.currentIndex--;
                 restoreState(history.states[history.currentIndex]);
-                alert('Undo successful');
             } else {
-                alert('Nothing to undo');
+                console.log('Nothing to undo');
             }
         }
 
@@ -2535,16 +2621,40 @@
             if (history.currentIndex < history.states.length - 1) {
                 history.currentIndex++;
                 restoreState(history.states[history.currentIndex]);
-                alert('Redo successful');
             } else {
-                alert('Nothing to redo');
+                console.log('Nothing to redo');
             }
         }
 
         function restoreState(savedState) {
             // Restore filters
             state.filters = { ...savedState.filters };
-            applyFilters();
+            applyAllFilters();
+
+            // Restore HTML content
+            layerOverlay.innerHTML = savedState.textLayersHTML;
+            videoTrack.innerHTML = savedState.videoTrackHTML;
+            audioTrack.innerHTML = savedState.audioTrackHTML;
+
+            // Re-bind events to all elements
+            document.querySelectorAll('.track-clip').forEach(clip => initClipEvents(clip));
+            document.querySelectorAll('.text-layer').forEach(layer => {
+                makeDraggable(layer);
+                layer.addEventListener('mousedown', () => selectTextLayer(layer));
+                const delBtn = layer.querySelector('.delete-layer-btn');
+                if (delBtn) {
+                    delBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        layer.remove();
+                        saveState();
+                    };
+                }
+            });
+
+            generateRuler();
+            syncVideoToTimeline();
+            syncAudioToTimeline();
+            updateUI();
         }
 
         // ===== TIMELINE TOOL BUTTONS =====
@@ -2567,7 +2677,7 @@
         exportBtn.addEventListener('click', () => {
             alert('Exporting video...\n\n' +
                 'Project: Untitled Project\n' +
-                'Duration: ' + formatTime(state.videoDuration) + '\n' +
+                'Duration: ' + formatTime(getTotalDuration()) + '\n' +
                 'Text Layers: ' + state.textLayers.length + '\n' +
                 'Audio Tracks: ' + audioFiles.length + '\n' +
                 'Markers: ' + markers.length + '\n\n' +
@@ -2620,19 +2730,62 @@
             // Don't trigger shortcuts if user is typing in a text layer or input
             if (e.target.tagName === 'INPUT' || e.target.contentEditable === 'true') return;
 
+            // Space: Play/Pause
             if (e.code === 'Space' && videoPlayer.src) {
                 e.preventDefault();
                 togglePlayback();
             }
 
+            // F: Fullscale
             if (e.code === 'KeyF') {
                 e.preventDefault();
                 toggleFullScreen();
             }
 
-            if (e.code === 'Delete' && state.selectedLayer) {
-                state.selectedLayer.remove();
-                state.textLayers = state.textLayers.filter(l => l !== state.selectedLayer);
+            // Delete: Remove selected clip or text layer
+            if (e.code === 'Delete' || e.code === 'Backspace') {
+                const selectedClip = document.querySelector('.track-clip.selected');
+                if (selectedClip) {
+                    saveState();
+                    selectedClip.remove();
+                    generateRuler();
+                    syncVideoToTimeline();
+                    updateUI();
+                } else if (state.selectedLayer) {
+                    saveState();
+                    state.selectedLayer.remove();
+                    state.textLayers = state.textLayers.filter(l => l !== state.selectedLayer);
+                    state.selectedLayer = null;
+                }
+            }
+
+            // Ctrl + Z: Undo
+            if (e.ctrlKey && e.code === 'KeyZ') {
+                e.preventDefault();
+                undo();
+            }
+
+            // Ctrl + Y: Redo
+            if (e.ctrlKey && e.code === 'KeyY') {
+                e.preventDefault();
+                redo();
+            }
+
+            // Arrow Keys: Seeking
+            if (e.code === 'ArrowLeft') {
+                e.preventDefault();
+                state.timelineTime = Math.max(0, state.timelineTime - 5);
+                syncVideoToTimeline();
+                syncAudioToTimeline();
+                updateUI();
+            }
+            if (e.code === 'ArrowRight') {
+                e.preventDefault();
+                const totalDur = getTotalDuration();
+                state.timelineTime = Math.min(totalDur, state.timelineTime + 5);
+                syncVideoToTimeline();
+                syncAudioToTimeline();
+                updateUI();
             }
         });
 
@@ -2778,6 +2931,9 @@
                         audioTrack.appendChild(clip);
                         audioFiles.push({ element: audio, clip: clip, file: file });
 
+                        saveState();
+                        generateRuler();
+
                         // Update audio tracks list
                         if (audioFiles.length === 1) {
                             audioTracksList.innerHTML = '';
@@ -2819,9 +2975,10 @@
         });
 
         function updateDurations(speed) {
-            if (state.videoDuration) {
-                originalDuration.textContent = formatTimeShort(state.videoDuration);
-                modifiedDuration.textContent = formatTimeShort(state.videoDuration / speed);
+            const totalDuration = getTotalDuration();
+            if (totalDuration) {
+                originalDuration.textContent = formatTimeShort(totalDuration);
+                modifiedDuration.textContent = formatTimeShort(totalDuration / speed);
             }
         }
 
