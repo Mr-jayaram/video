@@ -1022,159 +1022,24 @@
             justify-content: center;
         }
 
-        /* ===== RESPONSIVE MOBILE LANDSCAPE (Show All Mode) ===== */
-        @media (max-height: 550px) and (orientation: landscape) {
-            .editor-container {
-                grid-template-columns: 180px 1px 1fr 1px 180px !important;
-                grid-template-rows: 32px 1fr 100px !important;
-                height: 100vh !important;
-                display: grid !important;
-            }
-
+        /* ===== MOBILE VIEW: SAME UI, 90 DEG ROTATE ONLY ===== */
+        @media (max-width: 900px) {
             body {
                 transform: rotate(90deg);
                 transform-origin: center center;
+                width: 100vh;
+                height: 100vw;
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                margin-top: -50vw;
+                margin-left: -50vh;
+                overflow: hidden;
             }
 
-            .header {
-                grid-column: 1 / -1;
-                grid-row: 1;
-                height: 32px;
-                padding: 0 10px;
-                gap: 10px;
-            }
-
-            .logo span,
-            .auto-save,
-            .time-display,
-            .window-controls {
-                display: none !important;
-            }
-
-            .left-panel {
-                grid-column: 1;
-                grid-row: 2;
-                display: flex !important;
-                width: 180px !important;
-            }
-
-            .right-panel {
-                grid-column: 5;
-                grid-row: 2;
-                display: flex !important;
-                width: 180px !important;
-            }
-
-            .canvas-area {
-                grid-column: 3;
-                grid-row: 2;
-                padding: 0;
-            }
-
-            .timeline {
-                grid-column: 1 / -1;
-                grid-row: 4;
-                height: 100px !important;
-            }
-
-            .resizer-v,
-            .resizer-h {
-                display: none !important;
-            }
-
-            .panel-tab,
-            .prop-tab {
-                padding: 6px 2px;
-                font-size: 10px;
-            }
-
-            .properties-content {
-                padding: 10px;
-            }
-
-            .top-toolbar {
-                padding: 4px;
-                gap: 4px;
-                overflow-x: auto;
-                scrollbar-width: none;
-            }
-
-            .tool-category {
-                padding: 4px 8px;
-                font-size: 11px;
-                white-space: nowrap;
-            }
-
-            .player-wrapper {
-                padding: 5px;
-            }
-
-            #videoPlayer {
-                max-height: calc(100vh - 150px);
-            }
-
-            .timeline-toolbar {
-                padding: 2px 10px;
-            }
-
-            .timeline-tool-btn {
-                width: 24px;
-                height: 24px;
-                font-size: 12px;
-            }
-
-            .track-header {
-                height: 30px;
-                font-size: 10px;
-                width: 60px;
-            }
-
-            .timeline-track {
-                height: 30px;
-            }
-
-            .track-headers {
-                width: 60px;
-            }
-
-            .track-clip {
-                height: 24px;
-                top: 3px;
-            }
-
-            .clip-info {
-                font-size: 8px;
-                top: 4px;
-            }
-
-            .zoom-slider {
-                width: 60px;
-            }
-        }
-
-        /* Portrait Mobile */
-        @media (max-width: 600px) and (orientation: portrait) {
             .editor-container {
-                grid-template-columns: 1fr;
-                grid-template-rows: 40px 1fr 180px;
-            }
-
-            .left-panel,
-            .right-panel,
-            .resizer-v,
-            .resizer-h {
-                display: none !important;
-            }
-
-            .header,
-            .canvas-area,
-            .timeline {
-                display: flex !important;
-            }
-
-            body {
-                transform: rotate(90deg);
-                transform-origin: center center;
+                width: 100vh;
+                height: 100vw;
             }
         }
     </style>
