@@ -21,13 +21,124 @@
             height: 100vh;
         }
 
+        /* ===== CUSTOM SCROLLBARS ===== */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #0f0f0f;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 4px;
+            border: 2px solid #0f0f0f;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00d4ff;
+        }
+
+        #tracksArea::-webkit-scrollbar {
+            height: 12px;
+        }
+
+        #tracksArea::-webkit-scrollbar-track {
+            background: #111;
+            border-top: 1px solid #2a2a2a;
+        }
+
+        #tracksArea::-webkit-scrollbar-thumb {
+            background: #444;
+            border-radius: 6px;
+            border: 2px solid #111;
+        }
+
+        #tracksArea::-webkit-scrollbar-thumb:hover {
+            background: #00d4ff;
+        }
+
+        /* Firefox */
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: #333 #0f0f0f;
+        }
+
         /* ===== MAIN LAYOUT ===== */
         .editor-container {
             display: grid;
-            grid-template-rows: 40px 1fr 280px;
-            grid-template-columns: 360px 1fr 280px;
+            grid-template-columns: 320px 4px 1fr 4px 280px;
+            grid-template-rows: 40px 1fr 4px 300px;
             height: 100vh;
             background: #000;
+        }
+
+        /* ===== RESIZERS ===== */
+        .resizer-v {
+            background: #1a1a1a;
+            cursor: col-resize;
+            transition: background 0.2s;
+            z-index: 100;
+        }
+
+        .resizer-v:hover,
+        .resizer-v.dragging {
+            background: #00d4ff;
+        }
+
+        .resizer-h {
+            background: #1a1a1a;
+            cursor: row-resize;
+            transition: background 0.2s;
+            z-index: 100;
+        }
+
+        .resizer-h:hover,
+        .resizer-h.dragging {
+            background: #00d4ff;
+        }
+
+        /* Grid Placement Adjustments */
+        .header {
+            grid-column: 1 / -1;
+            grid-row: 1;
+        }
+
+        .left-panel {
+            grid-column: 1;
+            grid-row: 2;
+        }
+
+        .resizer-l {
+            grid-column: 2;
+            grid-row: 2;
+        }
+
+        .canvas-area {
+            grid-column: 3;
+            grid-row: 2;
+        }
+
+        .resizer-r {
+            grid-column: 4;
+            grid-row: 2;
+        }
+
+        .right-panel {
+            grid-column: 5;
+            grid-row: 2;
+        }
+
+        .resizer-b {
+            grid-column: 1 / -1;
+            grid-row: 3;
+        }
+
+        .timeline {
+            grid-column: 1 / -1;
+            grid-row: 4;
         }
 
         /* ===== TOP HEADER ===== */
@@ -431,14 +542,22 @@
             background: #1a1a1a;
             gap: 5px;
             padding: 8px;
+            overflow-x: auto;
+            scrollbar-width: none;
+            /* Hide for Firefox */
+        }
+
+        .properties-tabs::-webkit-scrollbar {
+            display: none;
+            /* Hide for Chrome/Safari */
         }
 
         .prop-tab {
-            flex: 1;
+            flex: 0 0 auto;
             background: transparent;
             border: none;
             color: #999;
-            padding: 8px 4px;
+            padding: 8px 12px;
             cursor: pointer;
             font-size: 12px;
             border-radius: 4px;
@@ -548,22 +667,37 @@
         .coord-inputs {
             display: flex;
             gap: 8px;
+            width: 100%;
+        }
+
+        .coord-group {
+            display: flex;
+            align-items: center;
+            flex: 1;
+            min-width: 0;
         }
 
         .coord-input {
-            flex: 1;
+            width: 100%;
+            min-width: 0;
             background: #1a1a1a;
             border: 1px solid #2a2a2a;
             color: #fff;
-            padding: 6px;
+            padding: 6px 4px;
             border-radius: 4px;
             font-size: 11px;
             text-align: center;
+            outline: none;
         }
 
         .coord-input:focus {
-            outline: none;
             border-color: #00d4ff;
+        }
+
+        .coord-input::-webkit-inner-spin-button,
+        .coord-input::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
         }
 
         .coord-label {
@@ -652,7 +786,8 @@
         .timeline-content {
             flex: 1;
             display: flex;
-            overflow: hidden;
+            overflow-y: auto;
+            position: relative;
         }
 
         .track-headers {
@@ -674,8 +809,9 @@
         .tracks-area {
             flex: 1;
             position: relative;
-            overflow-x: auto;
-            overflow-y: hidden;
+            overflow-x: scroll;
+            overflow-y: visible;
+            scrollbar-gutter: stable;
         }
 
         .timeline-ruler {
@@ -1019,6 +1155,9 @@
             </div>
         </div>
 
+        <!-- LEFT RESIZER -->
+        <div class="resizer-v resizer-l" id="resizerL"></div>
+
         <!-- CENTER CANVAS -->
         <div class="canvas-area">
             <div class="top-toolbar">
@@ -1083,15 +1222,6 @@
                         <!-- Text layers will be added here -->
                     </div>
 
-                    <div class="player-controls">
-                        <button class="play-btn-large" id="playPauseBtn">▶</button>
-                        <span class="player-time" id="playerTime">00:00:00.00</span>
-                        <span class="player-time">/</span>
-                        <span class="player-time" id="playerDuration">00:00:12.14</span>
-                        <span class="player-quality">Quality ▼</span>
-                        <button class="timeline-tool-btn" title="Original">📺</button>
-                        <button class="timeline-tool-btn" title="Fullscreen">⛶</button>
-                    </div>
 
                     <div class="placeholder-screen" id="placeholder">
                         <svg class="placeholder-icon" fill="currentColor" viewBox="0 0 24 24">
@@ -1105,6 +1235,9 @@
                 </div>
             </div>
         </div>
+
+        <!-- RIGHT RESIZER -->
+        <div class="resizer-v resizer-r" id="resizerR"></div>
 
         <!-- RIGHT PANEL -->
         <div class="right-panel">
@@ -1135,11 +1268,11 @@
                             <div class="property-label">Position</div>
                             <div class="property-input">
                                 <div class="coord-inputs">
-                                    <div style="display: flex; align-items: center; flex: 1;">
+                                    <div class="coord-group">
                                         <span class="coord-label">X</span>
                                         <input type="number" class="coord-input" id="posX" value="0">
                                     </div>
-                                    <div style="display: flex; align-items: center; flex: 1;">
+                                    <div class="coord-group">
                                         <span class="coord-label">Y</span>
                                         <input type="number" class="coord-input" id="posY" value="0">
                                     </div>
@@ -1401,6 +1534,9 @@
             </div>
         </div>
 
+        <!-- BOTTOM RESIZER -->
+        <div class="resizer-h resizer-b" id="resizerB"></div>
+
         <!-- TIMELINE -->
         <div class="timeline">
             <div class="timeline-toolbar">
@@ -1462,6 +1598,8 @@
             videoFile: null,
             videoDuration: 0,
             currentTime: 0,
+            timelineTime: 0, // Master timeline clock
+            lastFrameTime: 0, // For playback loop delta
             isPlaying: false,
             zoom: 5,
             pixelsPerSecond: 50,
@@ -1484,7 +1622,7 @@
         const placeholder = document.getElementById('placeholder');
         const uploadArea = document.getElementById('uploadArea');
         const videoInput = document.getElementById('videoInput');
-        const playPauseBtn = document.getElementById('playPauseBtn');
+        // const playPauseBtn = document.getElementById('playPauseBtn'); // Removed
         const playerTime = document.getElementById('playerTime');
         const playerDuration = document.getElementById('playerDuration');
         const layerOverlay = document.getElementById('layerOverlay');
@@ -1514,6 +1652,79 @@
         const opacitySlider = document.getElementById('opacitySlider');
         const opacityValue = document.getElementById('opacityValue');
 
+        // ===== SECTION RESIZING LOGIC =====
+        const resizerL = document.getElementById('resizerL');
+        const resizerR = document.getElementById('resizerR');
+        const resizerB = document.getElementById('resizerB');
+        const container = document.querySelector('.editor-container');
+
+        // Left Resizer
+        resizerL.addEventListener('mousedown', (e) => {
+            document.body.style.cursor = 'col-resize';
+            resizerL.classList.add('dragging');
+            const onMouseMove = (moveEvent) => {
+                const newWidth = moveEvent.clientX;
+                if (newWidth > 150 && newWidth < 600) {
+                    const currentRows = getComputedStyle(container).gridTemplateRows;
+                    const currentCols = getComputedStyle(container).gridTemplateColumns.split(' ');
+                    currentCols[0] = newWidth + 'px';
+                    container.style.gridTemplateColumns = currentCols.join(' ');
+                }
+            };
+            const onMouseUp = () => {
+                document.body.style.cursor = 'default';
+                resizerL.classList.remove('dragging');
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+            };
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+        });
+
+        // Right Resizer
+        resizerR.addEventListener('mousedown', (e) => {
+            document.body.style.cursor = 'col-resize';
+            resizerR.classList.add('dragging');
+            const onMouseMove = (moveEvent) => {
+                const newWidth = window.innerWidth - moveEvent.clientX;
+                if (newWidth > 150 && newWidth < 600) {
+                    const currentCols = getComputedStyle(container).gridTemplateColumns.split(' ');
+                    currentCols[4] = newWidth + 'px';
+                    container.style.gridTemplateColumns = currentCols.join(' ');
+                }
+            };
+            const onMouseUp = () => {
+                document.body.style.cursor = 'default';
+                resizerR.classList.remove('dragging');
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+            };
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+        });
+
+        // Bottom Resizer (Timeline Height)
+        resizerB.addEventListener('mousedown', (e) => {
+            document.body.style.cursor = 'row-resize';
+            resizerB.classList.add('dragging');
+            const onMouseMove = (moveEvent) => {
+                const newHeight = window.innerHeight - moveEvent.clientY;
+                if (newHeight > 100 && newHeight < 600) {
+                    const currentRows = getComputedStyle(container).gridTemplateRows.split(' ');
+                    currentRows[3] = newHeight + 'px';
+                    container.style.gridTemplateRows = currentRows.join(' ');
+                }
+            };
+            const onMouseUp = () => {
+                document.body.style.cursor = 'default';
+                resizerB.classList.remove('dragging');
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+            };
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+        });
+
         // ===== UPLOAD VIDEO =====
         uploadArea.addEventListener('click', () => videoInput.click());
 
@@ -1533,7 +1744,7 @@
             videoPlayer.addEventListener('loadedmetadata', () => {
                 placeholder.style.display = 'none';
                 state.videoDuration = videoPlayer.duration;
-                playerDuration.textContent = formatTime(videoPlayer.duration);
+                if (playerDuration) playerDuration.textContent = formatTime(videoPlayer.duration);
 
                 // Create video clip in timeline
                 createVideoClip(file);
@@ -1594,30 +1805,66 @@
         }
 
         // ===== PLAYBACK CONTROLS =====
-        playPauseBtn.addEventListener('click', togglePlayback);
+        // Playback toggle on video click
+        videoPlayer.addEventListener('click', togglePlayback);
+        // playPauseBtn.addEventListener('click', togglePlayback); // Removed
 
         function togglePlayback() {
             if (!videoPlayer.src) return;
 
-            if (videoPlayer.paused) {
-                videoPlayer.play();
-                playPauseBtn.textContent = '⏸';
-                state.isPlaying = true;
-            } else {
-                videoPlayer.pause();
-                playPauseBtn.textContent = '▶';
+            if (state.isPlaying) {
                 state.isPlaying = false;
+                videoPlayer.pause();
+                audioFiles.forEach(a => a.element.pause());
+            } else {
+                state.isPlaying = true;
+                state.lastFrameTime = performance.now();
+                requestAnimationFrame(playbackLoop);
             }
         }
 
-        videoPlayer.addEventListener('timeupdate', () => {
-            state.currentTime = videoPlayer.currentTime;
-            playerTime.textContent = formatTime(videoPlayer.currentTime);
+        function playbackLoop() {
+            if (!state.isPlaying) return;
+
+            const now = performance.now();
+            const delta = (now - state.lastFrameTime) / 1000;
+            state.timelineTime += delta;
+            state.lastFrameTime = now;
+
+            const totalDuration = getTotalDuration();
+            if (state.timelineTime >= totalDuration) {
+                state.timelineTime = totalDuration;
+                state.isPlaying = false;
+                videoPlayer.pause();
+                audioFiles.forEach(a => a.element.pause());
+                updateUI();
+                return;
+            }
+
+            syncVideoToTimeline();
+            syncAudioToTimeline();
+            updateUI();
+
+            requestAnimationFrame(playbackLoop);
+        }
+
+        function getTotalDuration() {
+            let max = state.videoDuration || 0;
+            const clips = document.querySelectorAll('.track-clip');
+            clips.forEach(clip => {
+                const end = (parseInt(clip.style.left) + parseInt(clip.style.width)) / state.pixelsPerSecond;
+                if (end > max) max = end;
+            });
+            return max;
+        }
+
+        function updateUI() {
+            if (playerTime) playerTime.textContent = formatTime(state.timelineTime);
             updatePlayhead();
-        });
+        }
 
         function updatePlayhead() {
-            const position = state.currentTime * state.pixelsPerSecond;
+            const position = state.timelineTime * state.pixelsPerSecond;
             playheadContainer.style.left = position + 'px';
         }
 
@@ -1634,9 +1881,12 @@
 
             const rect = tracksContainer.getBoundingClientRect();
             const x = e.clientX - rect.left + tracksArea.scrollLeft;
-            const time = Math.max(0, Math.min(x / state.pixelsPerSecond, state.videoDuration));
+            const time = Math.max(0, x / state.pixelsPerSecond);
 
-            videoPlayer.currentTime = time;
+            state.timelineTime = time;
+            syncVideoToTimeline();
+            syncAudioToTimeline();
+            updateUI();
         });
 
         document.addEventListener('mouseup', () => {
@@ -1647,8 +1897,11 @@
             if (e.target === tracksContainer || e.target.classList.contains('timeline-track')) {
                 const rect = tracksContainer.getBoundingClientRect();
                 const x = e.clientX - rect.left + tracksArea.scrollLeft;
-                const time = Math.max(0, Math.min(x / state.pixelsPerSecond, state.videoDuration));
-                videoPlayer.currentTime = time;
+                const time = Math.max(0, x / state.pixelsPerSecond);
+                state.timelineTime = time;
+                syncVideoToTimeline();
+                syncAudioToTimeline();
+                updateUI();
             }
         });
 
@@ -1663,6 +1916,12 @@
                 clip.style.width = (state.videoDuration * state.pixelsPerSecond) + 'px';
             });
 
+            // Update tracks container width
+            if (state.videoDuration) {
+                const totalWidth = state.videoDuration * state.pixelsPerSecond;
+                tracksContainer.style.width = totalWidth + 'px';
+            }
+
             generateRuler();
             updatePlayhead();
         });
@@ -1673,6 +1932,7 @@
 
             const width = state.videoDuration * state.pixelsPerSecond;
             timelineRuler.style.width = width + 'px';
+            tracksContainer.style.width = width + 'px';
 
             const interval = state.zoom < 3 ? 5 : state.zoom < 6 ? 2 : 1;
 
@@ -1966,37 +2226,57 @@
         // ===== NON-LINEAR PLAYBACK SYNC =====
         // This ensures the video player only plays what is on the timeline
         function syncVideoToTimeline() {
-            if (!state.isPlaying || !state.videoDuration) return;
+            if (!state.videoDuration) return;
 
-            const timelineTime = videoPlayer.currentTime;
+            const timelineTime = state.timelineTime;
             const currentClip = findClipAtTime(timelineTime);
 
             if (!currentClip) {
-                // We are in a gap (deleted part)
-                const nextClip = findNextClip(timelineTime);
-                if (nextClip) {
-                    // Jump to the start of the next available clip
-                    const nextClipTimelineStart = parseInt(nextClip.style.left) / state.pixelsPerSecond;
-                    videoPlayer.currentTime = nextClipTimelineStart;
-                } else {
-                    // No more clips, stop playback
-                    togglePlayback();
-                }
+                // Gap: Hide video and pause
+                videoPlayer.style.display = 'none';
+                if (!videoPlayer.paused) videoPlayer.pause();
                 return;
             }
 
-            // Calculate what the video's internal time SHOULD be
+            // Clip found: Show video
+            videoPlayer.style.display = 'block';
+
+            // Calculate internal video time
             const clipTimelineStart = parseInt(currentClip.style.left) / state.pixelsPerSecond;
             const clipVideoOffset = parseFloat(currentClip.getAttribute('data-video-start') || 0);
             const timePassedInClip = timelineTime - clipTimelineStart;
-
-            // The expected internal video time
             const expectedVideoTime = clipVideoOffset + timePassedInClip;
 
-            // If the video is playing a part it shouldn't (due to a split/cut), jump it
-            if (Math.abs(videoPlayer.currentTime - expectedVideoTime) > 0.3) {
+            // Update video player time if it's off or needs playing
+            if (Math.abs(videoPlayer.currentTime - expectedVideoTime) > 0.1) {
                 videoPlayer.currentTime = expectedVideoTime;
             }
+
+            if (state.isPlaying && videoPlayer.paused) {
+                videoPlayer.play().catch(() => { });
+            } else if (!state.isPlaying && !videoPlayer.paused) {
+                videoPlayer.pause();
+            }
+        }
+
+        function syncAudioToTimeline() {
+            const timelineTime = state.timelineTime;
+            audioFiles.forEach(audioObj => {
+                const clip = audioObj.clip;
+                const audio = audioObj.element;
+                const start = parseInt(clip.style.left) / state.pixelsPerSecond;
+                const duration = parseInt(clip.style.width) / state.pixelsPerSecond;
+
+                if (timelineTime >= start && timelineTime <= start + duration) {
+                    const expectedTime = timelineTime - start;
+                    if (Math.abs(audio.currentTime - expectedTime) > 0.1) {
+                        audio.currentTime = expectedTime;
+                    }
+                    if (state.isPlaying && audio.paused) audio.play().catch(() => { });
+                } else {
+                    if (!audio.paused) audio.pause();
+                }
+            });
         }
 
         function findClipAtTime(time) {
@@ -2364,6 +2644,9 @@
         if (fullscreenBtn) {
             fullscreenBtn.addEventListener('click', toggleFullScreen);
         }
+
+        // Double click player to toggle fullscreen
+        playerContainer.addEventListener('dblclick', toggleFullScreen);
 
         // ===== KEYBOARD SHORTCUTS =====
         document.addEventListener('keydown', (e) => {
