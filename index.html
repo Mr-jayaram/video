@@ -458,6 +458,21 @@
             max-height: calc(100vh - 400px);
             width: auto;
             height: auto;
+            position: relative;
+            z-index: 1;
+        }
+
+        #overlayPlayer {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 50%;
+            /* Default overlay size */
+            height: auto;
+            z-index: 5;
+            display: none;
+            /* pointer-events: none; allow clicking for now if needed, or rely on transform handles */
         }
 
         /* Fullscreen styles for centering */
@@ -1332,6 +1347,9 @@
                     </svg>
                     <div class="upload-text">Click to upload video</div>
                     <button class="upload-btn-small">Choose File</button>
+                    <button class="upload-btn-small" id="addOverlayBtn"
+                        style="margin-top: 10px; background: #2a2a2a; color: #fff; border: 1px solid #444;">+ Add
+                        Overlay</button>
                 </div>
 
                 <div class="media-grid" id="mediaGrid">
@@ -1409,6 +1427,7 @@
             <div class="player-wrapper">
                 <div class="player-container" id="playerContainer">
                     <video id="videoPlayer"></video>
+                    <video id="overlayPlayer"></video>
 
                     <div class="player-overlay" id="layerOverlay">
                         <!-- Text layers will be added here -->
@@ -1794,6 +1813,7 @@
                 <div class="track-headers">
                     <div class="track-header">🔒 Cover</div>
                     <div class="track-header">📹 Video</div>
+                    <div class="track-header">🖼️ Overlay</div>
                     <div class="track-header">📝 Text</div>
                     <div class="track-header">🎵 Audio</div>
                 </div>
@@ -1806,6 +1826,7 @@
                     <div class="tracks-container" id="tracksContainer">
                         <div class="timeline-track" id="coverTrack"></div>
                         <div class="timeline-track" id="videoTrack"></div>
+                        <div class="timeline-track" id="overlayTrack"></div>
                         <div class="timeline-track" id="textTrack"></div>
                         <div class="timeline-track" id="audioTrack"></div>
 
@@ -1819,7 +1840,10 @@
         </div>
     </div>
 
+    </div>
+
     <input type="file" id="videoInput" accept="video/*">
+    <input type="file" id="overlayInput" accept="video/*" style="display: none;">
 
     <script>
         // ===== STATE MANAGEMENT =====
@@ -1855,10 +1879,13 @@
 
         // ===== DOM ELEMENTS =====
         const videoPlayer = document.getElementById('videoPlayer');
+        const overlayPlayer = document.getElementById('overlayPlayer');
         const playerContainer = document.getElementById('playerContainer');
         const placeholder = document.getElementById('placeholder');
         const uploadArea = document.getElementById('uploadArea');
         const videoInput = document.getElementById('videoInput');
+        const overlayInput = document.getElementById('overlayInput');
+        const addOverlayBtn = document.getElementById('addOverlayBtn');
         // const playPauseBtn = document.getElementById('playPauseBtn'); // Removed
         const playerTime = document.getElementById('playerTime');
         const playerDuration = document.getElementById('playerDuration');
@@ -1870,6 +1897,7 @@
         const playheadLine = document.getElementById('playheadLine');
         const playheadContainer = document.getElementById('playheadContainer');
         const videoTrack = document.getElementById('videoTrack');
+        const overlayTrack = document.getElementById('overlayTrack');
         const tracksContainer = document.getElementById('tracksContainer');
         const tracksArea = document.getElementById('tracksArea');
         const timelineRuler = document.getElementById('timelineRuler');
@@ -2042,6 +2070,99 @@
             mediaGrid.appendChild(item);
         }
 
+        // ===== OVERLAY LOGIC =====
+        addOverlayBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            overlayInput.click();
+        });
+
+        overlayInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file && file.type.startsWith('video/')) {
+                loadOverlay(file);
+            }
+        });
+
+        function loadOverlay(file) {
+            const url = URL.createObjectURL(file);
+            overlayPlayer.src = url;
+            overlayPlayer.load();
+
+            overlayPlayer.addEventListener('loadedmetadata', () => {
+                // Default settings for overlay (smaller, centered)
+                // We keep it hidden until playback reaches its clip
+
+                // Create overlay clip
+                createOverlayClip(file, overlayPlayer.duration);
+                generateRuler();
+                alert('Overlay video added!');
+
+                // Also add to media library
+                addToMediaLibrary(file, url);
+            });
+        }
+
+        function createOverlayClip(file, duration) {
+            const clip = document.createElement('div');
+            clip.className = 'track-clip';
+            clip.style.left = (state.timelineTime * state.pixelsPerSecond) + 'px'; // Add at current time
+            clip.style.width = (duration * state.pixelsPerSecond) + 'px';
+            clip.style.background = 'linear-gradient(135deg, #a18cd1, #fbc2eb)'; // Different color for overlay
+            clip.setAttribute('data-video-start', 0);
+
+            const info = document.createElement('div');
+            info.className = 'clip-info';
+            info.textContent = '🖼️ ' + file.name.split('.')[0];
+
+            clip.appendChild(info);
+            overlayTrack.appendChild(clip);
+            initClipEvents(clip);
+        }
+
+        function syncOverlayToTimeline() {
+            if (!overlayPlayer.src) return;
+
+            const timelineTime = state.timelineTime;
+            const currentClip = findClipInTrack(overlayTrack, timelineTime);
+
+            if (!currentClip) {
+                overlayPlayer.style.display = 'none';
+                if (!overlayPlayer.paused) overlayPlayer.pause();
+                return;
+            }
+
+            // Clip found
+            overlayPlayer.style.display = 'block';
+
+            // Sync time
+            const clipTimelineStart = parseInt(currentClip.style.left) / state.pixelsPerSecond;
+            const clipVideoOffset = parseFloat(currentClip.getAttribute('data-video-start') || 0);
+            const timePassedInClip = timelineTime - clipTimelineStart;
+            const expectedVideoTime = clipVideoOffset + timePassedInClip;
+
+            if (Math.abs(overlayPlayer.currentTime - expectedVideoTime) > 0.1) {
+                overlayPlayer.currentTime = expectedVideoTime;
+            }
+
+            if (state.isPlaying && overlayPlayer.paused) {
+                overlayPlayer.play().catch(() => { });
+            } else if (!state.isPlaying && !overlayPlayer.paused) {
+                overlayPlayer.pause();
+            }
+        }
+
+        function findClipInTrack(track, time) {
+            const clips = track.querySelectorAll('.track-clip');
+            for (let clip of clips) {
+                const start = parseInt(clip.style.left) / state.pixelsPerSecond;
+                const duration = parseInt(clip.style.width) / state.pixelsPerSecond;
+                if (time >= start && time <= start + duration) {
+                    return clip;
+                }
+            }
+            return null;
+        }
+
         // ===== PLAYBACK CONTROLS =====
         // Playback toggle on video click
         videoPlayer.addEventListener('click', togglePlayback);
@@ -2053,6 +2174,7 @@
             if (state.isPlaying) {
                 state.isPlaying = false;
                 videoPlayer.pause();
+                overlayPlayer.pause();
                 audioFiles.forEach(a => a.element.pause());
             } else {
                 state.isPlaying = true;
@@ -2074,13 +2196,16 @@
                 state.timelineTime = totalDuration;
                 state.isPlaying = false;
                 videoPlayer.pause();
+                overlayPlayer.pause();
                 audioFiles.forEach(a => a.element.pause());
                 syncVideoToTimeline(); // Final sync
+                syncOverlayToTimeline();
                 updateUI();
                 return;
             }
 
             syncVideoToTimeline();
+            syncOverlayToTimeline();
             syncAudioToTimeline();
             updateUI();
 
@@ -2611,20 +2736,57 @@
             const startLeft = clip.offsetLeft;
             const originalVideoStart = parseFloat(clip.getAttribute('data-video-start') || 0);
 
+            // Calculate boundaries
+            const siblings = Array.from(clip.parentNode.children).filter(c => c !== clip && c.classList.contains('track-clip'));
+            let minLeft = 0;
+            let maxRight = Infinity;
+
+            siblings.forEach(sibling => {
+                const sLeft = sibling.offsetLeft;
+                const sWidth = sibling.offsetWidth;
+                const sRight = sLeft + sWidth;
+
+                // For left trim, we care about the neighbor to the left
+                if (side === 'left' && sRight <= startLeft) {
+                    minLeft = Math.max(minLeft, sRight);
+                }
+                // For right trim, we care about the neighbor to the right
+                if (side === 'right' && sLeft >= startLeft + startWidth) {
+                    maxRight = Math.min(maxRight, sLeft);
+                }
+            });
+
             const onMouseMove = (moveEvent) => {
                 const deltaX = moveEvent.clientX - startX;
                 if (side === 'left') {
-                    const newLeft = startLeft + deltaX;
-                    const newWidth = startWidth - deltaX;
+                    let newLeft = startLeft + deltaX;
+                    let newWidth = startWidth - deltaX;
+
+                    // Constrain to left neighbor
+                    if (newLeft < minLeft) {
+                        const diff = minLeft - newLeft;
+                        newLeft = minLeft;
+                        newWidth -= diff;
+                    }
+
                     if (newWidth > 10) {
                         clip.style.left = newLeft + 'px';
                         clip.style.width = newWidth + 'px';
                         // Adjust video start offset
-                        const newVideoStart = originalVideoStart + (deltaX / state.pixelsPerSecond);
+                        // We need to calculate the actual delta applied
+                        const appliedDelta = newLeft - startLeft;
+                        const newVideoStart = originalVideoStart + (appliedDelta / state.pixelsPerSecond);
                         clip.setAttribute('data-video-start', newVideoStart);
                     }
                 } else {
-                    const newWidth = startWidth + deltaX;
+                    let newWidth = startWidth + deltaX;
+                    const currentRight = startLeft + newWidth;
+
+                    // Constrain to right neighbor
+                    if (currentRight > maxRight) {
+                        newWidth = maxRight - startLeft;
+                    }
+
                     if (newWidth > 10) {
                         clip.style.width = newWidth + 'px';
                     }
@@ -2654,10 +2816,40 @@
             saveState();
             const startX = e.clientX;
             const startLeft = clip.offsetLeft;
+            const clipWidth = clip.offsetWidth;
+
+            // Calculate boundaries to prevent overlap
+            const siblings = Array.from(clip.parentNode.children).filter(c => c !== clip && c.classList.contains('track-clip'));
+            let minLeft = 0;
+            let maxLeft = Infinity;
+
+            siblings.forEach(sibling => {
+                const sLeft = sibling.offsetLeft;
+                const sWidth = sibling.offsetWidth;
+                const sRight = sLeft + sWidth;
+
+                // Check for neighbor to the left
+                if (sRight <= startLeft) {
+                    minLeft = Math.max(minLeft, sRight);
+                }
+                // Check for neighbor to the right
+                if (sLeft >= startLeft + clipWidth) {
+                    maxLeft = Math.min(maxLeft, sLeft);
+                }
+            });
+
+            // Adjust maxLeft to account for clip width
+            const rightBoundary = maxLeft === Infinity ? Infinity : maxLeft - clipWidth;
 
             const onMouseMove = (moveEvent) => {
                 const deltaX = moveEvent.clientX - startX;
-                clip.style.left = (startLeft + deltaX) + 'px';
+                let newLeft = startLeft + deltaX;
+
+                // Apply constraints
+                if (newLeft < minLeft) newLeft = minLeft;
+                if (newLeft > rightBoundary) newLeft = rightBoundary;
+
+                clip.style.left = newLeft + 'px';
                 syncVideoToTimeline();
                 syncAudioToTimeline();
                 updateUI();
